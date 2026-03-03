@@ -165,6 +165,11 @@ app.post('/api/auth/reset-password', async (req, res) => {
     } catch (error) { res.status(500).json({ message: "Update Error." }); }
 });
 
+
 // --- SERVER START ---
 const PORT = process.env.PORT || 5005;
-app.listen(PORT, () => console.log(`🚀 Engine Live on Port ${PORT}`));
+
+// The '0.0.0.0' is crucial for Render
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Engine Live on Port ${PORT}`);
+});
