@@ -34,7 +34,7 @@ const ProfilePage = ({ user }) => {
             { label: 'System Access', value: 'Level 4', icon: Database },
             { label: 'Uptime', value: '14h 22m', icon: Activity },
           ].map((stat, i) => (
-            <div key={i} className="bg-white/5 border border-white/5 p-8 rounded-[2rem] hover:border-[#FF7F11]/20 transition-all group">
+            <div key={i} className="bg-white/5 border border-white/5 p-8 rounded-4xl hover:border-[#FF7F11]/20 transition-all group">
               <stat.icon size={24} className="text-[#FF7F11] mb-6 opacity-40 group-hover:opacity-100 transition-all" />
               <h3 className="text-gray-500 font-mono text-[10px] uppercase tracking-widest mb-1">{stat.label}</h3>
               <p className="text-3xl font-black italic tracking-tighter uppercase">{stat.value}</p>
