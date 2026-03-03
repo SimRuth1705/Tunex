@@ -47,14 +47,19 @@ const User = mongoose.model('User', userSchema);
 // --- VOLATILE MEMORY STORES ---
 const otpStore = {}; 
 const resetStore = {}; 
+// Replace your old transporter with this exact code
 
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com', // Explicit host
-    port: 465,              // Secure port
-    secure: true,           // Use SSL/TLS
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Must be false for port 587
+    requireTLS: true,
     auth: {
       user: process.env.GMAIL_USER,
       pass: process.env.GMAIL_PASS
+    },
+    tls: {
+      rejectUnauthorized: false // Helps bypass Render's internal proxy blocking
     }
   });
 
