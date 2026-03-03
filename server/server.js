@@ -49,9 +49,10 @@ const User = mongoose.model('User', userSchema);
 const otpStore = {}; 
 const resetStore = {}; 
 
-// --- CLOUD MAIL CONFIG ---
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.gmail.com', // Explicit host
+  port: 465,              // Secure port
+  secure: true,           // Use SSL/TLS
   auth: {
     user: process.env.GMAIL_USER,
     pass: process.env.GMAIL_PASS
@@ -84,8 +85,14 @@ app.post('/api/auth/register-initiate', async (req, res) => {
             subject: 'TuneX Verification Code',
             html: `<h1 style="color:#FF7F11;">Verification Code: ${otp}</h1>`
         });
+        
+        console.log("✅ Email successfully sent to", email);
         res.status(200).json({ message: "OTP sent to email." });
-    } catch (error) { res.status(500).json({ message: "Mail Server Error." }); }
+    } catch (error) { 
+        // 🌟 THIS LINE IS CRITICAL
+        console.error("❌ NODEMAILER FAILURE:", error); 
+        res.status(500).json({ message: "Mail Server Error.", error: error.message }); 
+    }
 });
 
 // 2. Registration Phase 2 (Verify OTP & Save)
