@@ -10,15 +10,10 @@ const app = express();
 // --- 🌟 PRODUCTION-READY MIDDLEWARE ---
 // Explicitly allowing your Vercel URL and localhost to prevent "Preflight" errors
 app.use(cors({ 
-    origin: [
-        'https://tunex-git-main-samson-rajs-projects.vercel.app', 
-        'http://localhost:5173', 
-        'http://localhost:5175',
-        '*' // Note: Keep '*' during testing, but the Vercel URL is the most important
-    ], 
+    origin: true, // 🌟 Dynamically allow the requesting origin
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true
+    credentials: true 
 }));
 app.use(express.json());
 

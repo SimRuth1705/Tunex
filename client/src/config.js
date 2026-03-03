@@ -1,4 +1,6 @@
 // src/config.js
-const isProduction = true; 
+const isProduction = import.meta.env.PROD; // Auto-detects if running on Vercel
 
-export const API_BASE_URL = "https://tunex-backend-abc1.onrender.com"; // 🌟 Use your REAL link
+export const API_BASE_URL = isProduction 
+  ? "https://tunex-backend-abc1.onrender.com" 
+  : "http://localhost:5005";
