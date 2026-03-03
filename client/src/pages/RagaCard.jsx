@@ -1,159 +1,477 @@
-import React, { useState, useEffect } from 'react';
-import { Search, Grid, List, Target, X, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Activity, Loader2, Search, Play, X, Heart, Database } from 'lucide-react';
+import * as Tone from 'tone';
+import { motion, AnimatePresence } from 'framer-motion'; 
 
-export default function RagaExplorer() {
-  const [activeFilters, setActiveFilters] = useState({ jati: '', prahar: '', rasa: '' });
-  const [searchQuery, setSearchQuery] = useState('');
-  const [ragas, setRagas] = useState([]);
-  const [loading, setLoading] = useState(false);
+// 🌟 ANIMATION VARIANTS (Simplified for performance)
+const gridVariants = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.05 } 
+  }
+};
 
-  // 1. Fetch from MongoDB (via your API)
+const filterVariants = {
+  hidden: { opacity: 0, scale: 0.8 },
+  show: { 
+    opacity: 1, 
+    scale: 1, 
+    transition: { type: "spring", stiffness: 200, damping: 20 } 
+  }
+};
+
+// 🌟 CARD DISPLAY
+const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavorite }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingIndex, setPlayingIndex] = useState(-1); 
+
+  const timersRef = useRef([]);
+
+  const ragaNo = data.No || data.no || "—";
+  const ragaName = data['Raga Name'] || data.name || "Unknown";
+  const scaleString = data['Scale (Notes)'] || data.scale || "";
+  const c1 = data['Chord 1 (Notes)'] || data.chord1 || "";
+  const c2 = data['Chord 2 (Notes)'] || data.chord2 || "";
+  const c3 = data['Chord 3 (Notes)'] || data.chord3 || "";
+
+  const notes = useMemo(() => scaleString ? scaleString.split(', ') : [], [scaleString]);
+
+  useEffect(() => {
+    return () => {
+      timersRef.current.forEach(clearTimeout);
+    };
+  }, []);
+
+  const playScale = async () => {
+    if (isPlaying || notes.length === 0 || !synth) return;
+    
+    if (onPlay) onPlay(data);
+
+    if (Tone.context.state !== 'running') {
+      await Tone.start(); 
+    }
+    
+    setIsPlaying(true);
+    
+    const now = Tone.now() + 0.1; 
+    
+    notes.forEach((note, index) => {
+      synth.triggerAttackRelease(`${note}4`, "8n", now + (index * 0.4));
+      
+      const timer = setTimeout(() => {
+        setPlayingIndex(index);
+      }, (index * 400) + 100); 
+      
+      timersRef.current.push(timer);
+    });
+
+    const resetTimer = setTimeout(() => {
+      setPlayingIndex(-1);
+      setIsPlaying(false);
+    }, (notes.length * 400) + 600); 
+    
+    timersRef.current.push(resetTimer);
+  };
+  
+  return (
+    // Removed expensive 'layout' and complex enter/exit animations to prevent lag on large datasets
+    <motion.div 
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-[#0a0a0a] border border-white/5 p-6 rounded-3xl group hover:border-[#FF7F11]/40 transition-all duration-500 relative overflow-hidden flex flex-col h-90 max-w-75 mx-auto w-full transform-gpu"
+    >
+      
+      <div className="absolute -right-2 -top-4 text-[80px] font-black italic text-white/5 group-hover:text-[#FF7F11]/5 transition-all pointer-events-none select-none">
+        {ragaNo}
+      </div>
+
+      <div className="relative z-10 flex flex-col h-full">
+        {/* HEADER */}
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-1.5 h-1.5 rounded-full bg-[#FF7F11] shadow-[0_0_8px_#FF7F11]" />
+            <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-gray-500 font-bold">Index {ragaNo}</span>
+          </div>
+
+          <motion.button 
+            whileTap={{ scale: 0.7 }}
+            onClick={(e) => {
+              e.stopPropagation();
+              if(onToggleFavorite) onToggleFavorite(data);
+            }}
+            className={`transition-all duration-300 hover:scale-110 focus:outline-none ${
+              isFavorite ? 'text-[#FF7F11]' : 'text-gray-600 hover:text-[#FF7F11]'
+            }`}
+          >
+            <Heart size={16} className={isFavorite ? "fill-[#FF7F11]" : ""} />
+          </motion.button>
+        </div>
+
+        <div className="mb-4">
+          <h3 className="text-2xl font-black tracking-tighter uppercase italic text-white group-hover:text-[#FF7F11] transition-colors leading-none truncate">
+            {ragaName}
+          </h3>
+        </div>
+
+        <div className="flex-1 mb-6">
+          <div className="flex justify-between items-center text-[8px] uppercase tracking-widest text-gray-600 font-bold mb-3">
+            <span className="flex items-center gap-1.5"><Activity size={10} className="text-[#FF7F11]"/> Note Profile</span>
+            <span className="font-mono text-gray-800">{notes.length} Notes</span>
+          </div>
+          
+          <div className="flex gap-1 h-16 items-end px-1">
+            {notes.map((note, i) => {
+              const isActive = playingIndex === i; 
+              return (
+                <div key={i} className="flex-1 group/note relative">
+                  <div 
+                    className={`w-full rounded-t-sm transition-all duration-200 ${
+                      isActive 
+                      ? 'bg-white shadow-[0_0_20px_rgba(255,255,255,0.8)] scale-y-110 origin-bottom' 
+                      : 'bg-white/20 group-hover:bg-[#FF7F11]'
+                    }`}
+                    style={{ height: `${((i + 1) / (notes.length || 1)) * 100}%` }}
+                  />
+                  <span className={`absolute -bottom-6 left-1/2 -translate-x-1/2 text-xs font-black uppercase transition-all duration-200 ${
+                    isActive ? 'text-white scale-125' : 'text-gray-500 group-hover:text-[#FF7F11]'
+                  }`}>
+                    {note}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2 mb-6 mt-2">
+           <span className="text-[8px] uppercase tracking-[0.3em] text-gray-700 font-bold ml-1">Harmonic Chords</span>
+           <div className="grid grid-cols-3 gap-2">
+            {[c1, c2, c3].map((chord, i) => (
+              <div key={i} className="bg-white/5 border border-white/5 p-2 rounded-lg text-center group-hover:border-[#FF7F11]/20 transition-all">
+                <span className="block text-[9px] font-mono text-gray-300 truncate">
+                  {chord ? chord.split(' ')[0] : '—'}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <motion.button 
+          whileTap={{ scale: 0.97 }}
+          onClick={playScale}
+          disabled={isPlaying || notes.length === 0}
+          className={`w-full py-3 border rounded-xl text-[9px] font-black uppercase tracking-[0.2em] transition-all flex items-center justify-center gap-2 ${
+            isPlaying 
+            ? 'bg-[#FF7F11] border-[#FF7F11] text-black shadow-[0_0_20px_rgba(255,127,17,0.4)]' 
+            : 'bg-white/5 border-white/5 hover:bg-[#FF7F11] hover:text-black hover:border-[#FF7F11]'
+          }`}
+        >
+          {isPlaying ? (
+            <>
+               <Activity size={12} className="animate-pulse" /> Playing Matrix...
+            </>
+          ) : (
+             <>
+               <Play size={12} /> Listen to Scale
+             </>
+          )}
+        </motion.button>
+      </div>
+    </motion.div>
+  );
+}); 
+
+// 🌟 MAIN APP COMPONENT
+export default function RagaCard() {
+  const [dbEntries, setDbEntries] = useState([]);
+  const [activeNote, setActiveNote] = useState(null);
+  const [loading, setLoading] = useState(true);
+  
+  const [historyItems, setHistoryItems] = useState([]);
+  const [favoriteItems, setFavoriteItems] = useState([]); 
+  
+  const [selectedTags, setSelectedTags] = useState([]);
+  const [inputValue, setInputValue] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  
+  const globalSynthRef = useRef(null);
+  const inputRef = useRef(null);
+
+  const westernNotes = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+
+  useEffect(() => {
+    globalSynthRef.current = new Tone.Synth({
+      oscillator: { type: "triangle" },
+      envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 }
+    }).toDestination();
+    
+    const savedHistory = JSON.parse(localStorage.getItem('tunex_history')) || [];
+    const savedFavs = JSON.parse(localStorage.getItem('tunex_favorites')) || [];
+    setHistoryItems(savedHistory);
+    setFavoriteItems(savedFavs);
+    
+    return () => {
+      if (globalSynthRef.current) globalSynthRef.current.dispose();
+    };
+  }, []);
+
   useEffect(() => {
     const fetchRagas = async () => {
-      setLoading(true);
       try {
-        // Construct query params
-        const params = new URLSearchParams({
-          ...activeFilters,
-          search: searchQuery
-        }).toString();
-        
-        const response = await fetch(`/api/ragas?${params}`);
+        const response = await fetch('http://localhost:5000/api/ragas');
+        if (!response.ok) throw new Error(`Server Error: ${response.status}`);
         const data = await response.json();
-        setRagas(data);
-      } catch (error) {
-        console.error("Database fetch error:", error);
+        setDbEntries(data);
+      } catch (err) {
+        console.error("CONNECTION ERROR:", err);
       } finally {
         setLoading(false);
       }
     };
+    fetchRagas();
+  }, []);
 
-    const debounce = setTimeout(fetchRagas, 300); // Prevent spamming DB
-    return () => clearTimeout(debounce);
-  }, [activeFilters, searchQuery]);
+  const checkIsFavorite = useCallback((raga) => {
+    return favoriteItems.some(f => (f.No || f.no) === (raga.No || raga.no));
+  }, [favoriteItems]);
 
-  const toggleFilter = (category, value) => {
-    setActiveFilters(prev => ({
-      ...prev,
-      [category]: prev[category] === value ? '' : value
-    }));
+  const handleToggleFavorite = useCallback((ragaData) => {
+    setFavoriteItems(prev => {
+      const ragaId = ragaData.No || ragaData.no;
+      const isFav = prev.some(item => (item.No || item.no) === ragaId);
+      let newFavs;
+      
+      if (isFav) {
+        newFavs = prev.filter(item => (item.No || item.no) !== ragaId);
+      } else {
+        newFavs = [{ ...ragaData }, ...prev];
+      }
+      
+      localStorage.setItem('tunex_favorites', JSON.stringify(newFavs));
+      return newFavs;
+    });
+  }, []);
+
+  const handlePlayRaga = useCallback((ragaData) => {
+    const historyEntry = { ...ragaData, playedAt: new Date().toISOString() };
+    setHistoryItems(prev => {
+      const filtered = prev.filter(item => (item.No || item.no) !== (ragaData.No || ragaData.no));
+      const newHistory = [historyEntry, ...filtered].slice(0, 50); 
+      localStorage.setItem('tunex_history', JSON.stringify(newHistory));
+      return newHistory;
+    });
+  }, []);
+
+  const uniqueRagaNames = useMemo(() => {
+    const allNames = dbEntries.map(r => r['Raga Name'] || r.name).filter(Boolean);
+    return Array.from(new Set(allNames));
+  }, [dbEntries]);
+
+  const availableSuggestions = useMemo(() => {
+    if (!inputValue.trim()) return [];
+    return uniqueRagaNames.filter(item => 
+      item.toLowerCase().includes(inputValue.toLowerCase()) && 
+      !selectedTags.includes(item)
+    ).slice(0, 10);
+  }, [inputValue, selectedTags, uniqueRagaNames]);
+
+  const addTag = (tag) => {
+    setSelectedTags([...selectedTags, tag]);
+    setInputValue('');
+    setShowSuggestions(false);
+    inputRef.current?.focus(); 
   };
 
+  const removeTag = (tagToRemove) => {
+    setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && inputValue.trim()) {
+      const match = availableSuggestions[0];
+      if (match) addTag(match);
+      else addTag(inputValue.trim());
+    } else if (e.key === 'Backspace' && !inputValue && selectedTags.length > 0) {
+      removeTag(selectedTags[selectedTags.length - 1]);
+    }
+  };
+
+  // 🌟 FIX: Data Filtering Logic
+  const filteredData = useMemo(() => {
+    // If no search tags AND no active note are selected, return an empty array!
+    if (selectedTags.length === 0 && !activeNote) {
+      return []; 
+    }
+
+    return dbEntries.filter(raga => {
+      const ragaName = raga['Raga Name'] || raga.name || "";
+      const ragaNo = raga.No || raga.no || "";
+      const scaleString = raga['Scale (Notes)'] || raga.scale || "";
+
+      // Check if it matches ALL search tags
+      const matchesSearch = selectedTags.length === 0 ? true : selectedTags.every(tag => 
+        ragaName.toLowerCase().includes(tag.toLowerCase()) || ragaNo.toString() === tag
+      );
+      
+      // Check if it matches the selected Note filter
+      const matchesNote = activeNote ? scaleString.split(', ')[0] === activeNote : true;
+      
+      return matchesSearch && matchesNote;
+    });
+  }, [dbEntries, selectedTags, activeNote]);
+
   return (
-    <div className="min-h-screen bg-black text-white p-4 lg:p-8">
-      {/* HUGE HEADER (Improved opacity and placement) */}
-      <div className="relative h-40 flex items-center justify-center overflow-hidden mb-12">
-        <h1 className="text-[12vw] font-black uppercase tracking-tighter opacity-[0.05] absolute">
-          {activeFilters.jati || "Archive"}
-        </h1>
-        <div className="z-10 text-center">
-          <h2 className="text-4xl md:text-6xl font-black italic">EXPLORE<span className="text-[#FF7F11]">.</span></h2>
-          <div className="flex items-center justify-center gap-2 mt-2">
-            <div className="h-px w-8 bg-[#FF7F11]"></div>
-            <span className="text-gray-500 tracking-[0.3em] text-[9px] font-bold uppercase">
-              {ragas.length} Ragas Discovered
-            </span>
-            <div className="h-px w-8 bg-[#FF7F11]"></div>
+    <div className="min-h-screen bg-black text-white px-8 pb-32 font-sans selection:bg-[#FF7F11] selection:text-black overflow-x-hidden pt-6">
+      
+      <section className="relative h-[40vh] flex flex-col items-center justify-center z-40">
+        <motion.div 
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 1, ease: "easeOut" }}
+          className="absolute inset-0 overflow-hidden pointer-events-none flex items-center justify-center z-0"
+        >
+          <h1 className="text-[18vw] font-black uppercase tracking-tighter opacity-[0.03] select-none whitespace-nowrap">
+            {activeNote ? `KEY OF ${activeNote}` : 'SCALE MATRIX'}
+          </h1>
+        </motion.div>
+
+        <motion.div 
+          initial={{ y: 20, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          transition={{ duration: 0.6, ease: "easeOut", delay: 0.1 }}
+          className="relative z-40 text-center flex flex-col items-center w-full"
+        >
+          <h2 className="text-7xl md:text-9xl font-black tracking-tighter italic uppercase leading-none">
+            SYSTEM<span className="text-[#FF7F11]">.</span>DB
+          </h2>
+          
+          <div className="mt-8 relative w-full max-w-2xl group z-40">
+            <div className="flex flex-wrap items-center gap-2 w-full bg-[#0a0a0a] border border-white/10 rounded-2xl py-3 pl-4 pr-4 focus-within:border-[#FF7F11]/50 transition-all min-h-13 cursor-text" onClick={() => inputRef.current?.focus()}>
+              <Search className="text-gray-600 group-focus-within:text-[#FF7F11] shrink-0" size={16} />
+              
+              <AnimatePresence>
+                {selectedTags.map((tag, index) => (
+                  <motion.span 
+                    key={tag}
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    className="flex items-center gap-1 bg-[#FF7F11]/10 text-[#FF7F11] px-3 py-1 rounded-lg text-xs font-mono font-bold border border-[#FF7F11]/20"
+                  >
+                    {tag}
+                    <button onClick={(e) => { e.stopPropagation(); removeTag(tag); }} className="hover:text-white transition-colors ml-1 focus:outline-none">
+                      <X size={12} />
+                    </button>
+                  </motion.span>
+                ))}
+              </AnimatePresence>
+
+              <input 
+                ref={inputRef}
+                type="text" 
+                placeholder={selectedTags.length === 0 ? "Search Raga Name..." : ""} 
+                className="flex-1 bg-transparent text-sm font-mono outline-none min-w-30"
+                value={inputValue}
+                onChange={(e) => { setInputValue(e.target.value); setShowSuggestions(true); }}
+                onFocus={() => setShowSuggestions(true)}
+                onKeyDown={handleKeyDown}
+                onBlur={() => setShowSuggestions(false)} 
+              />
+            </div>
+
+            <AnimatePresence>
+              {showSuggestions && inputValue && availableSuggestions.length > 0 && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-full left-0 w-full mt-2 bg-[#111] border border-white/10 rounded-xl overflow-hidden shadow-2xl z-50 max-h-60 overflow-y-auto"
+                >
+                  {availableSuggestions.map((suggestion, index) => (
+                    <button
+                      key={index}
+                      onMouseDown={(e) => { e.preventDefault(); addTag(suggestion); }}
+                      className="w-full text-left px-4 py-3 text-sm font-mono text-gray-400 hover:bg-[#FF7F11] hover:text-black transition-colors border-b border-white/5 last:border-0 focus:bg-[#FF7F11] focus:text-black outline-none"
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+        </motion.div>
+      </section>
+
+      {/* 🌟 KEYBOARD FILTER */}
+      <div className="max-w-7xl mx-auto mb-20 relative z-10">
+        <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 lg:p-12 relative overflow-hidden">
+          <motion.div 
+            variants={gridVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-4 md:grid-cols-6 lg:grid-cols-12 gap-4"
+          >
+            {westernNotes.map((note) => (
+              <motion.button
+                key={note}
+                variants={filterVariants}
+                whileHover={{ y: -5 }} 
+                whileTap={{ scale: 0.9 }}
+                onClick={() => setActiveNote(activeNote === note ? null : note)}
+                className={`py-7 rounded-[1.8rem] border font-mono text-sm font-black transition-colors duration-300 cursor-pointer ${
+                  activeNote === note 
+                  ? 'bg-[#FF7F11] border-[#FF7F11] text-black shadow-[0_0_40px_rgba(255,127,17,0.4)]' 
+                  : 'bg-black border-white/5 text-gray-600 hover:border-[#FF7F11]/40 hover:text-white'
+                }`}
+              >
+                {note}
+              </motion.button>
+            ))}
+          </motion.div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto">
-        {/* SEARCH & CONTROLS */}
-        <div className="flex flex-col md:flex-row gap-4 mb-10">
-          <div className="relative flex-1">
-            <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-600" size={18} />
-            <input 
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-[#0f0f0f] border border-white/5 rounded-2xl py-4 pl-14 pr-6 outline-none focus:border-[#FF7F11]/40 transition-all"
-              placeholder="Search by name, notes, or melakarta..."
-            />
-          </div>
-          {Object.values(activeFilters).some(v => v !== '') && (
-            <button 
-              onClick={() => setActiveFilters({ jati: '', prahar: '', rasa: '' })}
-              className="px-6 py-2 text-xs font-bold text-[#FF7F11] border border-[#FF7F11]/20 rounded-2xl hover:bg-[#FF7F11]/10 transition-all flex items-center gap-2"
-            >
-              <X size={14}/> Clear Filters
-            </button>
-          )}
-        </div>
-
-        {/* FILTER CATEGORIES (The Layout you liked) */}
-        <div className="space-y-4 mb-16">
-          <CategoryRow title="Note Count" active={activeFilters.jati}>
-            {['Audava', 'Shadava', 'Sampurna'].map(t => (
-              <FilterPill 
-                key={t} label={t} 
-                isActive={activeFilters.jati === t} 
-                onClick={() => toggleFilter('jati', t)} 
-              />
-            ))}
-          </CategoryRow>
-
-          <CategoryRow title="Time Period" active={activeFilters.prahar}>
-            {['Morning', 'Afternoon', 'Evening', 'Night'].map(t => (
-              <FilterPill 
-                key={t} label={t} 
-                isActive={activeFilters.prahar === t} 
-                onClick={() => toggleFilter('prahar', t)} 
-              />
-            ))}
-          </CategoryRow>
-        </div>
-
-        {/* RESULTS GRID */}
+      <main className="max-w-350 mx-auto relative z-0">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-20 text-gray-600">
-            <Loader2 className="animate-spin mb-4" size={32} />
-            <span className="text-xs uppercase tracking-widest">Querying MongoDB...</span>
+          <div className="flex flex-col items-center justify-center py-24 gap-6">
+            <Loader2 className="animate-spin text-[#FF7F11]" size={48} />
+            <span className="text-[12px] font-mono tracking-[0.5em] text-gray-600 uppercase font-black">Syncing Matrix...</span>
           </div>
+        ) : filteredData.length === 0 ? (
+          // 🌟 EMPTY STATE (Shown when nothing is searched/filtered)
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center py-24 opacity-30"
+          >
+            <Database size={64} className="mb-6 text-gray-600" />
+            <p className="font-mono text-sm tracking-widest uppercase font-black text-center">Awaiting Query...</p>
+            <p className="text-xs text-gray-500 mt-2 text-center">Search a raga name or select a key filter to populate the matrix.</p>
+          </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ragas.map(raga => <RagaCard key={raga._id} raga={raga} />)}
-          </div>
+          /* 🌟 MAIN DATA GRID */
+          <motion.div 
+            variants={gridVariants}
+            initial="hidden"
+            animate="show"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8"
+          >
+            {filteredData.map((entry) => (
+              <CardDisplay 
+                key={entry._id || entry.No} 
+                data={entry} 
+                synth={globalSynthRef.current} 
+                onPlay={handlePlayRaga}
+                isFavorite={checkIsFavorite(entry)}
+                onToggleFavorite={handleToggleFavorite}
+              />
+            ))}
+          </motion.div>
         )}
-      </div>
+      </main>
     </div>
   );
 }
-
-// Sub-components for cleaner code
-const CategoryRow = ({ title, active, children }) => (
-  <div className="flex flex-col lg:flex-row gap-4">
-    <div className="lg:w-1/3 bg-[#0a0a0a] border border-white/5 rounded-2xl p-6 flex justify-between items-center">
-      <h3 className="text-xl font-black uppercase tracking-tight">{title}</h3>
-      <span className="text-[#FF7F11] font-mono text-[10px]">{active || 'All'}</span>
-    </div>
-    <div className="lg:w-2/3 grid grid-cols-2 md:grid-cols-4 gap-3">
-      {children}
-    </div>
-  </div>
-);
-
-const FilterPill = ({ label, isActive, onClick }) => (
-  <button 
-    onClick={onClick}
-    className={`py-4 rounded-2xl border text-[10px] font-bold uppercase tracking-widest transition-all ${
-      isActive ? 'bg-[#FF7F11] border-[#FF7F11] text-black shadow-lg shadow-[#FF7F11]/20' : 'bg-[#050505] border-white/5 text-gray-500 hover:border-white/20'
-    }`}
-  >
-    {label}
-  </button>
-);
-
-const RagaCard = ({ raga }) => (
-  <div className="bg-[#0a0a0a] border border-white/5 p-6 rounded-4xl hover:border-[#FF7F11]/30 transition-all group">
-    <div className="flex justify-between items-start mb-4">
-      <h4 className="text-xl font-bold group-hover:text-[#FF7F11] transition-colors">{raga.name}</h4>
-      <span className="px-3 py-1 bg-white/5 rounded-full text-[9px] text-gray-500 uppercase font-bold">{raga.jati}</span>
-    </div>
-    <div className="flex gap-1 mb-4 h-10 items-end">
-       {/* Mock Visual DNA */}
-       {[...Array(7)].map((_, i) => <div key={i} className="flex-1 bg-white/5 rounded-t-sm group-hover:bg-[#FF7F11]/20 transition-all" style={{height: `${Math.random() * 100}%`}} />)}
-    </div>
-    <button className="w-full py-3 bg-white/5 rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-white/10 transition-all">
-      View Scales
-    </button>
-  </div>
-);

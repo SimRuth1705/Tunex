@@ -1,88 +1,106 @@
-import React from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
+import { Menu, X, LogOut, User as UserIcon } from 'lucide-react';
+import toast from 'react-hot-toast';
 
-const Navbar = () => {
+const Navbar = ({ user, setUser }) => {
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    if (window.confirm("Terminate system session?")) {
+      localStorage.removeItem('tunex_user');
+      setUser(null);
+      toast.error("Identity De-authenticated", {
+        style: { background: '#000', color: '#FF7F11', border: '1px solid #FF7F11', fontFamily: 'monospace' }
+      });
+      navigate('/');
+    }
+  };
+
+  const navLinks = [
+    { name: 'Home', path: '/' },
+    { name: 'Keyboard', path: '/keyboard' },
+    { name: 'Raga', path: '/raga' },
+    { name: 'History', path: '/history' },
+    { name: 'About Us', path: '/about' }
+  ];
+
   return (
-    <nav className="w-full h-24 flex items-center justify-between px-6 lg:px-12 bg-black/50 backdrop-blur-md sticky top-0 z-50 border-b border-white/5">
+    <nav className="w-full h-24 flex items-center justify-between px-6 lg:px-12 bg-black/50 backdrop-blur-md sticky top-0 z-50 border-b border-white/5 cursor-none">
       
       {/* LEFT: Logo */}
       <div className="flex items-center">
-        <Link 
-          to="/" 
-          className="text-3xl font-black italic tracking-tighter text-white hover:opacity-80 transition-opacity"
-        >
+        <Link to="/" className="text-3xl font-black italic tracking-tighter text-white hover:opacity-80 transition-opacity py-2 px-4 -ml-4 cursor-none!">
           Tune<span className="text-[#FF7F11]">X</span>
         </Link>
       </div>
 
-      {/* CENTER: Navigation Links with Active State */}
-      <div className="hidden md:flex items-center gap-8">
-        {[
-          { name: 'Home', path: '/' },
-          { name: 'Keyboard', path: '/keyboard' },
-          { name: 'Raga', path: '/raga' },
-          { name: 'History', path: '/history' },
-          { name: 'About Us', path: '/about' }
-        ].map((item, index, arr) => (
+      {/* CENTER: Navigation */}
+      <div className="hidden md:flex items-center gap-4">
+        {navLinks.map((item, index) => (
           <React.Fragment key={item.name}>
             <NavLink 
               to={item.path} 
-              className={({ isActive }) => 
-                `text-[10px] uppercase tracking-[0.3em] font-mono transition-all duration-300 ${
-                  isActive 
-                  ? 'text-[#FF7F11] font-bold shadow-[0_15px_15px_-10px_rgba(255,127,17,0.3)]' 
-                  : 'text-gray-400 hover:text-[#FF7F11]'
-                }`
-              }
+              className={({ isActive }) => `text-[10px] uppercase tracking-[0.3em] font-mono transition-all py-4 px-3 ${isActive ? 'text-[#FF7F11] font-bold' : 'text-gray-400 hover:text-[#FF7F11]'}`}
             >
               {item.name}
             </NavLink>
-            {index < arr.length - 1 && (
-              <span className="text-[#FF7F11] text-[10px] opacity-40">»</span>
-            )}
+            {index < navLinks.length - 1 && <span className="text-[#FF7F11] text-[10px] opacity-20">»</span>}
           </React.Fragment>
         ))}
       </div>
 
-      {/* RIGHT: Login Button */}
-      <div className="flex items-center">
-        <NavLink to="/login">
-          {({ isActive }) => (
-            <button className={`group relative flex items-stretch transition-all duration-300 rounded-lg overflow-hidden shadow-lg scale-90 lg:scale-100 ${
-              isActive ? 'bg-white shadow-[#white]/20' : 'bg-[#FF7F11] hover:bg-[#ff9e4a] shadow-[#FF7F11]/40'
-            }`}>
-              
-              {/* Left Side: Label */}
-              <div className="flex items-center pl-6 pr-4 py-2.5">
-                <span className={`font-mono text-xs lg:text-sm font-black uppercase tracking-widest ${isActive ? 'text-black' : 'text-black'}`}>
-                  {isActive ? 'Profile' : 'Login'}
-                </span>
-              </div>
-
-              {/* Center Divider */}
-              <div className={`relative flex flex-col justify-center items-center w-3 ${isActive ? 'bg-white' : 'bg-[#FF7F11]'}`}>
-                <div className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-black rounded-full"></div>
-                <div className="flex flex-col gap-1 z-10 opacity-40">
-                  <div className="w-0.5 h-0.5 bg-black rounded-full"></div>
-                  <div className="w-0.5 h-0.5 bg-black rounded-full"></div>
-                  <div className="w-0.5 h-0.5 bg-black rounded-full"></div>
-                </div>
-                <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-black rounded-full"></div>
-              </div>
-
-              {/* Right Side: Pixel Icon */}
-              <div className={`flex items-center pl-2 pr-5 py-2.5 ${isActive ? 'bg-white' : 'bg-[#FF7F11]'}`}>
-                <svg width="14" height="10" viewBox="0 0 16 10" fill="currentColor" xmlns="http://www.w3.org/2000/svg" className="text-black">
-                  <rect x="0" y="0" width="4" height="4" />
-                  <rect x="12" y="0" width="4" height="4" />
-                  <rect x="6" y="6" width="4" height="4" />
-                  <rect x="12" y="6" width="4" height="4" />
-                </svg>
-              </div>
+      {/* RIGHT: Auth Controls */}
+      <div className="flex items-center gap-4">
+        {!user ? (
+          /* LOGIN BUTTON (Shown only if logged out) */
+          <NavLink to="/login" className="hidden md:block cursor-none!">
+            <button className="bg-[#FF7F11] hover:bg-[#ff9e4a] text-black px-6 py-2.5 rounded-lg font-mono text-xs font-black uppercase tracking-widest transition-all">
+              Login
             </button>
-          )}
-        </NavLink>
+          </NavLink>
+        ) : (
+          /* PROFILE & LOGOUT (Shown only if logged in) */
+          <div className="hidden md:flex items-center gap-3">
+            <Link to="/profile" className="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-xl transition-all cursor-none!">
+              <UserIcon size={14} className="text-[#FF7F11]" />
+              <span className="text-[10px] font-mono uppercase tracking-widest text-white">{user.name.split(' ')[0]}</span>
+            </Link>
+            <button 
+              onClick={handleLogout}
+              className="p-2.5 bg-red-500/10 hover:bg-red-500 text-red-500 hover:text-black border border-red-500/20 rounded-xl transition-all cursor-none!"
+              title="Logout"
+            >
+              <LogOut size={16} />
+            </button>
+          </div>
+        )}
+
+        <button className="md:hidden text-[#FF7F11] p-4 -mr-4" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+          {isMobileMenuOpen ? <X size={28} /> : <Menu size={28} />}
+        </button>
       </div>
+
+      {/* MOBILE MENU */}
+      {isMobileMenuOpen && (
+        <div className="absolute top-24 left-0 w-full bg-[#0a0a0a] border-b border-white/10 md:hidden flex flex-col items-center py-8">
+          {navLinks.map((item) => (
+            <NavLink key={item.name} to={item.path} onClick={() => setIsMobileMenuOpen(false)} className="w-full text-center py-4 border-b border-white/5 text-gray-400 font-mono text-xs uppercase tracking-widest">
+              {item.name}
+            </NavLink>
+          ))}
+          {user ? (
+            <button onClick={handleLogout} className="w-[80%] mt-6 bg-red-500 text-black py-4 rounded-lg font-black uppercase text-xs tracking-widest">
+              Terminate Session
+            </button>
+          ) : (
+            <Link to="/login" onClick={() => setIsMobileMenuOpen(false)} className="w-[80%] mt-6 bg-[#FF7F11] text-black py-4 rounded-lg text-center font-black uppercase text-xs tracking-widest">
+              Access Vault
+            </Link>
+          )}
+        </div>
+      )}
     </nav>
   );
 };
