@@ -50,14 +50,14 @@ const otpStore = {};
 const resetStore = {}; 
 
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com', // Explicit host
-  port: 465,              // Secure port
-  secure: true,           // Use SSL/TLS
-  auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS
-  }
-});
+    host: 'smtp.gmail.com', // Explicit host
+    port: 465,              // Secure port
+    secure: true,           // Use SSL/TLS
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS
+    }
+  });
 
 // --- ROUTES: DIAGNOSTICS ---
 app.get('/ping', (req, res) => {
