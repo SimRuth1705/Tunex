@@ -7,11 +7,10 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 
-// --- 🌟 PRODUCTION-READY MIDDLEWARE ---
-// Explicitly allowing your Vercel URL and localhost to prevent "Preflight" errors
 app.use(cors({ 
     origin: [
       'https://tunex-two.vercel.app', 
+      'https://tunex-git-main-samson-rajs-projects.vercel.app', // <-- ADD THIS
       'http://localhost:5173'
     ], 
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
