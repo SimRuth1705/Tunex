@@ -3,10 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Mail, Loader2, AlertCircle } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
+import { API_BASE_URL } from '../config'; // 🌟 Ensure this is imported
 
 export default function RegisterPage({ setUser }) {
   const navigate = useNavigate();
-  const [step, setStep] = useState(1); // 1: Registration Form, 2: OTP Entry
+  const [step, setStep] = useState(1); 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   
@@ -17,14 +18,15 @@ export default function RegisterPage({ setUser }) {
   });
   const [otp, setOtp] = useState('');
 
-  // 🌟 PHASE 1: Send Data to Server & Request OTP
+  // 🌟 PHASE 1: Request OTP from Cloud Engine
   const handleRegisterInitiate = async (e) => {
     if (e) e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
 
     try {
-      const response = await fetch('https://your-backend-name.onrender.com/api/auth/login', {
+      // ✅ FIXED: Changed endpoint to /register-initiate
+      const response = await fetch(`${API_BASE_URL}/api/auth/register-initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -33,26 +35,26 @@ export default function RegisterPage({ setUser }) {
       const data = await response.json();
 
       if (response.ok) {
-        setStep(2); // Move to OTP verification
+        setStep(2); 
       } else {
-        setErrorMessage(data.message || "Authentication failed.");
+        setErrorMessage(data.message || "Registration failed.");
       }
     } catch (err) {
-      setErrorMessage("System Offline. Ensure backend is running on Port 5005.");
+      setErrorMessage("System Offline. Ensure your Render backend is awake.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  // 🌟 PHASE 2: Verify OTP and Finalize Account
+  // 🌟 PHASE 2: Verify OTP and Create Cloud Account
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setErrorMessage('');
 
     try {
-      // ✅ FIXED: Changed endpoint to verify-otp
-      const response = await fetch('http://localhost:5005/api/auth/verify-otp', {
+      // ✅ FIXED: Changed localhost to ${API_BASE_URL}
+      const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
@@ -64,11 +66,9 @@ export default function RegisterPage({ setUser }) {
       const data = await response.json();
 
       if (response.ok) {
-        // Log the user in globally
         localStorage.setItem('tunex_user', JSON.stringify(data.user));
         if (setUser) setUser(data.user);
         
-        // 🌟 Optional: Small delay for UX feel
         setTimeout(() => {
           navigate('/'); 
         }, 500);
@@ -76,7 +76,7 @@ export default function RegisterPage({ setUser }) {
         setErrorMessage(data.message || "Invalid Security Code.");
       }
     } catch (err) {
-      setErrorMessage("Verification protocol failed. Check connection.");
+      setErrorMessage("Verification protocol failed. Check cloud connection.");
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +89,6 @@ export default function RegisterPage({ setUser }) {
     >
       <AnimatePresence mode="wait">
         
-        {/* Error Notification */}
         {errorMessage && (
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
@@ -101,7 +100,6 @@ export default function RegisterPage({ setUser }) {
         )}
 
         {step === 1 ? (
-          /* --- STEP 1: REGISTRATION FORM --- */
           <motion.form 
             key="reg-form"
             initial={{ opacity: 0, x: -20 }}
@@ -158,7 +156,6 @@ export default function RegisterPage({ setUser }) {
             </p>
           </motion.form>
         ) : (
-          /* --- STEP 2: OTP VERIFICATION --- */
           <motion.form 
             key="otp-form"
             initial={{ opacity: 0, x: 20 }}

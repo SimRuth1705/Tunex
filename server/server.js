@@ -10,10 +10,13 @@ const app = express();
 // --- 🌟 PRODUCTION-READY MIDDLEWARE ---
 // Explicitly allowing your Vercel URL and localhost to prevent "Preflight" errors
 app.use(cors({ 
-    origin: true, // 🌟 Dynamically allow the requesting origin
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
+    origin: [
+      'https://tunex-two.vercel.app', 
+      'http://localhost:5173'
+    ], 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
-    credentials: true 
+    credentials: true
 }));
 app.use(express.json());
 
