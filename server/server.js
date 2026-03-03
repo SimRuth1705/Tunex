@@ -7,12 +7,18 @@ const bcrypt = require('bcryptjs');
 
 const app = express();
 
-// --- 🌟 PRODUCTION MIDDLEWARE ---
-// Allowing all for now to fix CORS issues, but you can restrict this later to your Vercel URL
+// --- 🌟 PRODUCTION-READY MIDDLEWARE ---
+// Explicitly allowing your Vercel URL and localhost to prevent "Preflight" errors
 app.use(cors({ 
-    origin: '*', 
-    methods: ['GET', 'POST'], 
-    allowedHeaders: ['Content-Type'] 
+    origin: [
+        'https://tunex-git-main-samson-rajs-projects.vercel.app', 
+        'http://localhost:5173', 
+        'http://localhost:5175',
+        '*' // Note: Keep '*' during testing, but the Vercel URL is the most important
+    ], 
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], 
+    allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true
 }));
 app.use(express.json());
 
@@ -23,7 +29,14 @@ mongoose.connect(mongoURI)
   .catch(err => console.error("❌ Database Connection Error:", err));
 
 // --- SCHEMAS & MODELS ---
-const ragaSchema = new mongoose.Schema({ no: Number, name: String, scale: String, chord1: String, chord2: String, chord3: String });
+const ragaSchema = new mongoose.Schema({ 
+    no: Number, 
+    name: String, 
+    scale: String, 
+    chord1: String, 
+    chord2: String, 
+    chord3: String 
+});
 const Raga = mongoose.model('Raga', ragaSchema, 'ragas');
 
 const userSchema = new mongoose.Schema({
@@ -34,7 +47,7 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', userSchema);
 
-// --- VOLATILE MEMORY STORES (Clears on server restart) ---
+// --- VOLATILE MEMORY STORES ---
 const otpStore = {}; 
 const resetStore = {}; 
 

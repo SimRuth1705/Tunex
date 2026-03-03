@@ -1,6 +1,4 @@
 // src/config.js
 const isProduction = true; 
 
-export const API_BASE_URL = isProduction 
-  ? "https://tunex-backend.onrender.com" // ✅ Your actual Render URL
-  : "http://localhost:5005";
+export const API_BASE_URL = "https://tunex-backend-abc1.onrender.com"; // 🌟 Use your REAL link
