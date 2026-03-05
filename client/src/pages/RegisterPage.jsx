@@ -66,7 +66,7 @@ export default function RegisterPage({ setUser }) {
       const data = await response.json();
 
       if (response.ok) {
-        localStorage.setItem('tunex_user', JSON.stringify(data.user));
+        localStorage.setItem('user', JSON.stringify(data.user));
         if (setUser) setUser(data.user);
         
         setTimeout(() => {

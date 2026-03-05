@@ -30,7 +30,7 @@ export default function LoginPage({ setUser }) {
 
       if (response.ok) {
         // Success: Store identity in vault
-        localStorage.setItem('tunex_user', JSON.stringify(data.user));
+        localStorage.setItem('user', JSON.stringify(data.user));
         if (setUser) setUser(data.user);
         
         // Brief delay for transition feel

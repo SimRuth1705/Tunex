@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { Activity, Loader2, Search, Play, X, Heart, Database } from 'lucide-react';
+import { Activity, Loader2, Search, Play, X, Heart, Database, Aperture } from 'lucide-react';
 import * as Tone from 'tone';
 import { motion, AnimatePresence } from 'framer-motion'; 
+import { API_BASE_URL } from '../config'; 
 
-// 🌟 ANIMATION VARIANTS (Simplified for performance)
+// 🌟 ANIMATION VARIANTS
 const gridVariants = {
   hidden: { opacity: 0 },
   show: {
@@ -34,6 +35,7 @@ const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavor
   const c1 = data['Chord 1 (Notes)'] || data.chord1 || "";
   const c2 = data['Chord 2 (Notes)'] || data.chord2 || "";
   const c3 = data['Chord 3 (Notes)'] || data.chord3 || "";
+  const ragaChakra = data['Chakras'] || data.Chakra || data.chakra || ""; 
 
   const notes = useMemo(() => scaleString ? scaleString.split(', ') : [], [scaleString]);
 
@@ -75,7 +77,6 @@ const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavor
   };
   
   return (
-    // Removed expensive 'layout' and complex enter/exit animations to prevent lag on large datasets
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
@@ -90,9 +91,15 @@ const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavor
       <div className="relative z-10 flex flex-col h-full">
         {/* HEADER */}
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <div className="w-1.5 h-1.5 rounded-full bg-[#FF7F11] shadow-[0_0_8px_#FF7F11]" />
             <span className="font-mono text-[9px] uppercase tracking-[0.3em] text-gray-500 font-bold">Index {ragaNo}</span>
+            {/* 🌟 CHAKRA BADGE */}
+            {ragaChakra && (
+              <span className="font-mono text-[8px] uppercase tracking-[0.2em] text-[#FF7F11] font-bold border border-[#FF7F11]/20 px-2 py-0.5 rounded ml-1 bg-[#FF7F11]/5">
+                {ragaChakra}
+              </span>
+            )}
           </div>
 
           <motion.button 
@@ -187,6 +194,7 @@ const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavor
 export default function RagaCard() {
   const [dbEntries, setDbEntries] = useState([]);
   const [activeNote, setActiveNote] = useState(null);
+  const [activeChakra, setActiveChakra] = useState(null); 
   const [loading, setLoading] = useState(true);
   
   const [historyItems, setHistoryItems] = useState([]);
@@ -220,7 +228,7 @@ export default function RagaCard() {
   useEffect(() => {
     const fetchRagas = async () => {
       try {
-        const response = await fetch('http://localhost:5000/api/ragas');
+        const response = await fetch(`${API_BASE_URL}/api/ragas`);
         if (!response.ok) throw new Error(`Server Error: ${response.status}`);
         const data = await response.json();
         setDbEntries(data);
@@ -254,7 +262,9 @@ export default function RagaCard() {
     });
   }, []);
 
-  const handlePlayRaga = useCallback((ragaData) => {
+  // 🌟 FULLY FIXED: Now successfully pushes data to your MongoDB Cloud
+  const handlePlayRaga = useCallback(async (ragaData) => {
+    // 1. Instantly update Local Storage (Optimistic Update)
     const historyEntry = { ...ragaData, playedAt: new Date().toISOString() };
     setHistoryItems(prev => {
       const filtered = prev.filter(item => (item.No || item.no) !== (ragaData.No || ragaData.no));
@@ -262,11 +272,35 @@ export default function RagaCard() {
       localStorage.setItem('tunex_history', JSON.stringify(newHistory));
       return newHistory;
     });
+
+    // 2. Fetch logged-in user data
+    const userData = JSON.parse(localStorage.getItem('user'));
+    const userEmail = userData ? userData.email : 'guest@tunex.com';
+
+    // 3. Push log to Cloud Time Series Collection
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/history/add`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userEmail: userEmail,
+          ragaData: ragaData // 🌟 Pushing the complete object so the History Page can render the chords
+        })
+      });
+      console.log(`✅ Logged to Cloud Database! Status: ${response.status}`);
+    } catch (err) {
+      console.error("❌ Failed to log playback to cloud:", err);
+    }
   }, []);
 
   const uniqueRagaNames = useMemo(() => {
     const allNames = dbEntries.map(r => r['Raga Name'] || r.name).filter(Boolean);
     return Array.from(new Set(allNames));
+  }, [dbEntries]);
+
+  const uniqueChakras = useMemo(() => {
+    const chakras = dbEntries.map(r => r['Chakras'] || r.Chakra || r.chakra).filter(Boolean);
+    return Array.from(new Set(chakras));
   }, [dbEntries]);
 
   const availableSuggestions = useMemo(() => {
@@ -298,10 +332,8 @@ export default function RagaCard() {
     }
   };
 
-  // 🌟 FIX: Data Filtering Logic
   const filteredData = useMemo(() => {
-    // If no search tags AND no active note are selected, return an empty array!
-    if (selectedTags.length === 0 && !activeNote) {
+    if (selectedTags.length === 0 && !activeNote && !activeChakra) {
       return []; 
     }
 
@@ -309,18 +341,18 @@ export default function RagaCard() {
       const ragaName = raga['Raga Name'] || raga.name || "";
       const ragaNo = raga.No || raga.no || "";
       const scaleString = raga['Scale (Notes)'] || raga.scale || "";
+      const ragaChakra = raga['Chakras'] || raga.Chakra || raga.chakra || ""; 
 
-      // Check if it matches ALL search tags
       const matchesSearch = selectedTags.length === 0 ? true : selectedTags.every(tag => 
         ragaName.toLowerCase().includes(tag.toLowerCase()) || ragaNo.toString() === tag
       );
       
-      // Check if it matches the selected Note filter
       const matchesNote = activeNote ? scaleString.split(', ')[0] === activeNote : true;
+      const matchesChakra = activeChakra ? ragaChakra === activeChakra : true;
       
-      return matchesSearch && matchesNote;
+      return matchesSearch && matchesNote && matchesChakra;
     });
-  }, [dbEntries, selectedTags, activeNote]);
+  }, [dbEntries, selectedTags, activeNote, activeChakra]);
 
   return (
     <div className="min-h-screen bg-black text-white px-8 pb-32 font-sans selection:bg-[#FF7F11] selection:text-black overflow-x-hidden pt-6">
@@ -333,7 +365,7 @@ export default function RagaCard() {
           className="absolute inset-0 overflow-hidden pointer-events-none flex items-center justify-center z-0"
         >
           <h1 className="text-[18vw] font-black uppercase tracking-tighter opacity-[0.03] select-none whitespace-nowrap">
-            {activeNote ? `KEY OF ${activeNote}` : 'SCALE MATRIX'}
+            {activeChakra ? activeChakra : activeNote ? `KEY OF ${activeNote}` : 'SCALE MATRIX'}
           </h1>
         </motion.div>
 
@@ -405,8 +437,36 @@ export default function RagaCard() {
         </motion.div>
       </section>
 
-      {/* 🌟 KEYBOARD FILTER */}
-      <div className="max-w-7xl mx-auto mb-20 relative z-10">
+      <div className="max-w-7xl mx-auto mb-20 relative z-10 flex flex-col gap-4">
+        
+        {/* 🌟 NEW: CHAKRA FILTER ROW */}
+        {uniqueChakras.length > 0 && (
+          <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-6 lg:p-8 relative overflow-hidden">
+            <div className="flex items-center gap-2 mb-4 justify-center md:justify-start">
+              <Aperture size={16} className="text-[#FF7F11]" />
+              <span className="text-[10px] uppercase tracking-[0.3em] text-gray-500 font-bold">Filter by Chakra</span>
+            </div>
+            <div className="flex flex-wrap gap-3 justify-center md:justify-start">
+              {uniqueChakras.map(chakra => (
+                <motion.button
+                  key={chakra}
+                  whileHover={{ y: -3 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setActiveChakra(activeChakra === chakra ? null : chakra)}
+                  className={`px-4 py-2 rounded-xl border font-mono text-xs font-bold transition-all duration-300 ${
+                    activeChakra === chakra 
+                    ? 'bg-[#FF7F11] border-[#FF7F11] text-black shadow-[0_0_20px_rgba(255,127,17,0.4)]' 
+                    : 'bg-black border-white/5 text-gray-400 hover:border-[#FF7F11]/40 hover:text-white'
+                  }`}
+                >
+                  {chakra}
+                </motion.button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 🌟 EXISTING KEYBOARD FILTER */}
         <div className="bg-[#0a0a0a] border border-white/5 rounded-[2.5rem] p-8 lg:p-12 relative overflow-hidden">
           <motion.div 
             variants={gridVariants}
@@ -441,7 +501,6 @@ export default function RagaCard() {
             <span className="text-[12px] font-mono tracking-[0.5em] text-gray-600 uppercase font-black">Syncing Matrix...</span>
           </div>
         ) : filteredData.length === 0 ? (
-          // 🌟 EMPTY STATE (Shown when nothing is searched/filtered)
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -449,10 +508,9 @@ export default function RagaCard() {
           >
             <Database size={64} className="mb-6 text-gray-600" />
             <p className="font-mono text-sm tracking-widest uppercase font-black text-center">Awaiting Query...</p>
-            <p className="text-xs text-gray-500 mt-2 text-center">Search a raga name or select a key filter to populate the matrix.</p>
+            <p className="text-xs text-gray-500 mt-2 text-center">Search a raga name, select a key, or pick a Chakra to populate the matrix.</p>
           </motion.div>
         ) : (
-          /* 🌟 MAIN DATA GRID */
           <motion.div 
             variants={gridVariants}
             initial="hidden"
