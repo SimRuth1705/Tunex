@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Mail, Loader2, AlertCircle } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
-import { API_BASE_URL } from '../config'; // 🌟 Ensure this is imported
+import { API_BASE_URL } from '../config'; 
 
 export default function RegisterPage({ setUser }) {
   const navigate = useNavigate();
@@ -25,7 +25,6 @@ export default function RegisterPage({ setUser }) {
     setErrorMessage('');
 
     try {
-      // ✅ FIXED: Changed endpoint to /register-initiate
       const response = await fetch(`${API_BASE_URL}/api/auth/register-initiate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,7 +52,6 @@ export default function RegisterPage({ setUser }) {
     setErrorMessage('');
 
     try {
-      // ✅ FIXED: Changed localhost to ${API_BASE_URL}
       const response = await fetch(`${API_BASE_URL}/api/auth/verify-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,7 +64,10 @@ export default function RegisterPage({ setUser }) {
       const data = await response.json();
 
       if (response.ok) {
+        // 🌟 FIXED: Store BOTH user identity and JWT token
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('token', data.token); // 👈 Added this line!
+        
         if (setUser) setUser(data.user);
         
         setTimeout(() => {

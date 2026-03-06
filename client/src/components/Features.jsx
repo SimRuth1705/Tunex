@@ -76,8 +76,8 @@ const Features = () => {
         
         {/* Large Feature: Pitch Analysis */}
         <FeatureCard 
-          title="Neural Pitch Analysis"
-          description="Identify complex ragas in real-time using our proprietary frequency-mapping engine."
+          title="MIDI Integration "
+          description="Enables seamless performance capture for modern music producers."
           icon={Mic}
           className="col-span-12 lg:col-span-8 min-h-75"
         >
@@ -128,8 +128,8 @@ const Features = () => {
 
         {/* Small Feature: Chord Engine */}
         <FeatureCard 
-          title="Smart Chords"
-          description="Automatically map Western harmonic structures to traditional Indian scales."
+          title="Chord Suggestions"
+          description="Enhances harmony while preserving traditional melodic structure."
           icon={Music}
           className="col-span-12 lg:col-span-4 min-h-75"
         >
@@ -144,8 +144,8 @@ const Features = () => {
 
         {/* Small Feature: Instant Audio */}
         <FeatureCard 
-          title="Synth Audio"
-          description="Crystal clear Tone.js synthesis for every note in the library."
+          title="Keys Audio Library"
+          description="Search and access raga-based sounds instantly and efficiently."
           icon={Zap}
           className="col-span-12 lg:col-span-4 min-h-75"
         >

@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Mic, Cpu, Music, Share2 } from 'lucide-react';
 
 const STEPS = [
-  { id: 'A', label: 'EQUITIES', title: 'Frequency Extraction', desc: 'Identify fundamental frequencies and overtones from any audio input. Our engine filters background noise to isolate the core melodic structure.', icon: <Mic size={140} strokeWidth={1} /> },
+  { id: 'A', label: 'RAGAS', title: 'Melakarata Ragas', desc: 'All 72 Melakarta ragas are included across all 12 notes. Each note is configured as Sa for complete tonal flexibility.', icon: <Mic size={140} strokeWidth={1} /> },
   { id: 'B', label: 'CRYPTO', title: 'Neural Scale Mapping', desc: 'Every note is cross-referenced against the Melakarta matrix. Our neural net calculates the probability of Raga shifts in real-time.', icon: <Cpu size={140} strokeWidth={1} /> },
   { id: 'C', label: 'INDICES', title: 'Harmonic Synthesis', desc: 'Western chords are generated based on traditional raga rules, creating a seamless bridge between Indian classical and modern harmony.', icon: <Music size={140} strokeWidth={1} /> },
   { id: 'D', label: 'COLOCATION', title: 'Global Deployment', desc: 'Process and share musical insights across a decentralized system for low-latency collaboration and real-time syncing.', icon: <Share2 size={140} strokeWidth={1} /> }

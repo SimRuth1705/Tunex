@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import AuthLayout from '../components/AuthLayout';
-import { API_BASE_URL } from '../config'; // 🌟 Global Config Integration
+import { API_BASE_URL } from '../config'; 
 
 export default function LoginPage({ setUser }) {
   const navigate = useNavigate();
@@ -19,7 +19,6 @@ export default function LoginPage({ setUser }) {
     setError('');
 
     try {
-      // 🌟 Using API_BASE_URL from your config.js
       const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -29,8 +28,10 @@ export default function LoginPage({ setUser }) {
       const data = await response.json();
 
       if (response.ok) {
-        // Success: Store identity in vault
+        // 🌟 SUCCESS: Store BOTH the identity AND the secure token in the vault
         localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('token', data.token); // 👈 THIS IS CRITICAL FOR ADMIN ACCESS
+        
         if (setUser) setUser(data.user);
         
         // Brief delay for transition feel
@@ -96,7 +97,7 @@ export default function LoginPage({ setUser }) {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          
+            
           <div className="flex justify-end">
             <Link 
               to="/forgot-password" 
