@@ -30,7 +30,7 @@ app.use(express.json());
 const mongoURI = process.env.MONGO_URI;
 mongoose
   .connect(mongoURI)
-  .then(() => console.log("✅ TuneX Engine: Cloud MongoDB Connected"))
+  .then(() => console.log("✅ TuneX Engine: MongoDB Connected"))
   .catch((err) => console.error("❌ Database Connection Error:", err));
 
 // --- 🎼 SCHEMAS & MODELS ---
@@ -51,7 +51,7 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   role: { type: String, enum: ['user', 'admin', 'owner'], default: 'user' }
 }, { timestamps: true });
-const User = mongoose.model("User", userSchema);
+const User = mongoose.model("User", userSchema, "tunex_users"); // 🌟 Using 'tunex_users' to avoid the corrupted 'users' time-series collection
 
 const historySchema = new mongoose.Schema({
   userEmail: { type: String, required: true },
@@ -88,12 +88,17 @@ const protect = async (req, res, next) => {
       token = req.headers.authorization.split(' ')[1];
       const decoded = jwt.verify(token, process.env.JWT_SECRET || 'tunex_fallback_secret');
       req.user = await User.findById(decoded.id).select('-password');
-      next();
+      if (!req.user) {
+        return res.status(401).json({ message: "Not authorized, user not found." });
+      }
+      return next();
     } catch (error) {
-      res.status(401).json({ message: "Not authorized, token failed." });
+      return res.status(401).json({ message: "Not authorized, token failed." });
     }
   }
-  if (!token) res.status(401).json({ message: "Not authorized, no token." });
+  if (!token) {
+    return res.status(401).json({ message: "Not authorized, no token." });
+  }
 };
 
 // 3. Admin Only Route (Check if user is admin)
@@ -107,6 +112,18 @@ const adminOnly = (req, res, next) => {
 
 // --- ROUTES: DIAGNOSTICS ---
 app.get("/ping", (req, res) => res.send(`<h1>🚀 TuneX CLOUD ENGINE ONLINE</h1>`));
+
+// 🔧 TEMPORARY SETUP: Promote user to owner (DELETE THIS AFTER USE)
+app.get("/api/setup/make-owner/:email", async (req, res) => {
+  try {
+    await User.updateOne({ email: req.params.email }, { role: 'owner' });
+    const updated = await User.findOne({ email: req.params.email }).select('-password');
+    if (!updated) return res.status(404).json({ message: "User not found." });
+    res.json({ message: "Role updated to owner!", user: updated });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // --- ROUTES: RAGAS ---
 // Public: Fetch all Ragas
@@ -166,10 +183,12 @@ app.get("/api/users", protect, adminOnly, async (req, res) => {
 // 🌟 SECURED: Update User Role
 app.put("/api/users/:id/role", protect, adminOnly, async (req, res) => {
   try {
-    const updatedUser = await User.findByIdAndUpdate(req.params.id, { role: req.body.role }, { new: true }).select('-password');
-    if (!updatedUser) return res.status(404).json({ message: "User not found" });
+    const result = await User.updateOne({ _id: req.params.id }, { role: req.body.role });
+    if (result.matchedCount === 0) return res.status(404).json({ message: "User not found" });
+    const updatedUser = await User.findById(req.params.id).select('-password');
     res.status(200).json(updatedUser);
   } catch (err) {
+    console.error("Role Update Error:", err);
     res.status(500).json({ message: "Failed to update role." });
   }
 });
@@ -177,10 +196,11 @@ app.put("/api/users/:id/role", protect, adminOnly, async (req, res) => {
 // 🌟 SECURED: Delete a User
 app.delete("/api/users/:id", protect, adminOnly, async (req, res) => {
   try {
-    const deletedUser = await User.findByIdAndDelete(req.params.id);
-    if (!deletedUser) return res.status(404).json({ message: "User not found" });
+    const result = await User.deleteOne({ _id: req.params.id });
+    if (result.deletedCount === 0) return res.status(404).json({ message: "User not found" });
     res.status(200).json({ message: "User successfully removed." });
   } catch (err) {
+    console.error("User Deletion Error:", err);
     res.status(500).json({ message: "Failed to delete user." });
   }
 });
@@ -223,6 +243,7 @@ app.post("/api/auth/register-initiate", async (req, res) => {
     });
     res.status(200).json({ message: "OTP sent to email." });
   } catch (error) {
+    console.error("Registration Error:", error);
     res.status(500).json({ message: "Mail Server Error." });
   }
 });
@@ -252,16 +273,24 @@ app.post("/api/auth/login", async (req, res) => {
   const { email, password } = req.body;
   try {
     const user = await User.findOne({ email });
-    if (!user) return res.status(400).json({ message: "User not found." });
+    if (!user) {
+      console.log(`[LOGIN] User not found: ${email}`);
+      return res.status(400).json({ message: "User not found." });
+    }
     const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) return res.status(400).json({ message: "Incorrect password." });
+    if (!isMatch) {
+      console.log(`[LOGIN] Incorrect password for user: ${email}`);
+      return res.status(400).json({ message: "Incorrect password." });
+    }
 
+    console.log(`[LOGIN] Successful login: ${email}`);
     // 🌟 RETURN TOKEN
     res.status(200).json({ 
         user: { _id: user._id, name: user.name, email: user.email, role: user.role },
         token: generateToken(user._id)
     });
   } catch (err) {
+    console.error("[LOGIN] Internal Server Error:", err);
     res.status(500).json({ message: "Internal Server Error." });
   }
 });

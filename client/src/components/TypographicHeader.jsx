@@ -1,6 +1,7 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
-const TypographicHeader = ({ midiConnected }) => {
+const TypographicHeader = ({ midiConnected, onRequestMIDI }) => {
   return (
     <div className="w-full pt-12 lg:pt-0 lg:scale-95 origin-left flex flex-col justify-center">
       {/* Brand Section */}
@@ -35,18 +36,23 @@ const TypographicHeader = ({ midiConnected }) => {
         <span className="text-[9px] font-bold text-[#FF7F11]/60 tracking-[0.2em] uppercase whitespace-nowrap">
           Powered by TuneX Engine
         </span>
-        
-        {/* MIDI Status Bulb at the end */}
-        <div className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10 ml-auto lg:ml-0">
-          <div className={`h-2 w-2 rounded-full transition-all duration-500 ${
-            midiConnected 
-              ? 'bg-[#FF7F11] shadow-[0_0_10px_#FF7F11] animate-pulse' 
-              : 'bg-gray-700'
-          }`}></div>
-          <span className="text-[8px] font-mono text-gray-500 tracking-widest uppercase">
-            {midiConnected ? 'MIDI Active' : 'No MIDI'}
+
+        {/* MIDI Status Bulb - Now a manual activate button */}
+        <motion.button
+          whileHover={{ scale: 1.05, borderColor: 'rgba(255,127,17,0.3)' }}
+          whileTap={{ scale: 0.95 }}
+          onClick={onRequestMIDI}
+          className="flex items-center gap-2 px-3 py-1 bg-white/5 rounded-full border border-white/10 ml-auto lg:ml-0 transition-all group outline-none"
+          title="Click to activate MIDI"
+        >
+          <div className={`h-2 w-2 rounded-full transition-all duration-500 ${midiConnected
+            ? 'bg-[#FF7F11] shadow-[0_0_10px_#FF7F11] animate-pulse'
+            : 'bg-gray-700 group-hover:bg-gray-500'
+            }`}></div>
+          <span className="text-[8px] font-mono text-gray-500 tracking-widest uppercase transition-colors group-hover:text-gray-300">
+            {midiConnected ? 'MIDI Active' : 'Activate MIDI'}
           </span>
-        </div>
+        </motion.button>
       </div>
     </div>
   );

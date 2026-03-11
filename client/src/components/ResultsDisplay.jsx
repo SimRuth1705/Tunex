@@ -18,15 +18,15 @@ const ResultsDisplay = ({ detectedRaga, suggestedChords }) => {
         <span className="text-[9px] uppercase tracking-[0.2em] text-gray-600 font-bold mb-1">
           Suggested Chords
         </span>
-        <div className="text-xs lg:text-sm font-medium text-gray-400 flex flex-wrap justify-center gap-1">
+        <div className="text-xs lg:text-sm font-medium text-gray-400 flex flex-wrap justify-center gap-2">
           {suggestedChords?.length > 0 ? (
             suggestedChords.map((chord, i) => (
-              <span key={i} className="bg-white/5 px-1.5 rounded border border-white/5 whitespace-nowrap">
+              <span key={i} className="bg-[#FF7F11]/10 px-2 py-0.5 rounded border border-[#FF7F11]/20 text-[#FF7F11] whitespace-nowrap font-mono text-[10px]">
                 {chord}
               </span>
             ))
           ) : (
-            <span className="text-gray-700">...</span>
+            <span className="text-gray-700 italic">No harmonic matches...</span>
           )}
         </div>
       </div>

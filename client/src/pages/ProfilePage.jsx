@@ -5,6 +5,7 @@ import { API_BASE_URL } from '../config';
 
 const ProfilePage = ({ user }) => {
   const [historyCount, setHistoryCount] = useState(0);
+  const [recentHistory, setRecentHistory] = useState([]);
   const [isSyncing, setIsSyncing] = useState(true);
 
   // 🌟 Determine dynamic role and access level
@@ -12,6 +13,22 @@ const ProfilePage = ({ user }) => {
   const isAdmin = userRole === 'admin' || userRole === 'owner';
   const accessLevel = isAdmin ? 'Level 4 (Admin)' : 'Level 1 (Standard)';
   const roleDisplay = userRole.toUpperCase();
+
+  // 🌟 Calculate Vault Status (Account Age)
+  const calculateAccountAge = () => {
+    if (!user?.createdAt) return "SECURE";
+    const createdDate = new Date(user.createdAt);
+    const now = new Date();
+    const diffTime = Math.abs(now - createdDate);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 1) return "ACTIVE 1 DAY";
+    if (diffDays < 30) return `ACTIVE ${diffDays} DAYS`;
+    const diffMonths = Math.floor(diffDays / 30);
+    return `ACTIVE ${diffMonths} MO`;
+  };
+
+  const vaultStatus = calculateAccountAge();
 
   // 🌟 Fetch actual logged harmonies from the backend
   useEffect(() => {
@@ -23,6 +40,7 @@ const ProfilePage = ({ user }) => {
         if (response.ok) {
           const data = await response.json();
           setHistoryCount(data.length);
+          setRecentHistory(data.slice(0, 5)); // Keep last 5 for recent activity display
         }
       } catch (err) {
         console.error("Failed to fetch user stats", err);
@@ -93,9 +111,50 @@ const ProfilePage = ({ user }) => {
           <div className="bg-white/5 border border-white/5 p-8 rounded-4xl hover:border-[#FF7F11]/20 transition-all group relative overflow-hidden">
             <Activity size={24} className="text-[#FF7F11] mb-6 opacity-40 group-hover:opacity-100 transition-all relative z-10" />
             <h3 className="text-gray-500 font-mono text-[10px] uppercase tracking-widest mb-1 relative z-10">Vault Status</h3>
-            <p className="text-3xl font-black italic tracking-tighter uppercase text-green-500 relative z-10">
-              SECURE
+            <p className="text-2xl font-black italic tracking-tighter uppercase text-green-500 relative z-10">
+              {vaultStatus}
             </p>
+          </div>
+        </div>
+
+        {/* 🌟 New Dynamic Recent Activity Section */}
+        <div className="mb-12">
+          <h2 className="text-xl font-black italic uppercase tracking-tighter mb-6 flex items-center gap-3">
+            <span className="w-2 h-2 bg-[#FF7F11] rounded-full inline-block"></span>
+            Recent Transmissions
+          </h2>
+          
+          <div className="space-y-4">
+            {isSyncing ? (
+               <div className="p-6 border border-white/5 rounded-2xl bg-white/5 text-gray-500 font-mono text-sm text-center">
+                 Decrypting Logs...
+               </div>
+            ) : recentHistory.length === 0 ? (
+               <div className="p-6 border border-white/5 rounded-2xl bg-white/5 text-gray-500 font-mono text-sm text-center">
+                 No visual harmonies logged yet. Navigate to the core visualizer to begin.
+               </div>
+            ) : (
+              recentHistory.map((item, index) => (
+                <motion.div 
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                  key={item._id || index} 
+                  className="p-5 border border-white/5 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors flex justify-between items-center"
+                >
+                  <div>
+                    <h4 className="font-bold text-lg">{item["Raga Name"] || "Custom Sequence"}</h4>
+                    <p className="text-xs text-gray-400 font-mono mt-1">{item["Scale (Notes)"] || "Unknown Scale"}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] uppercase tracking-widest font-mono text-gray-500 block mb-1">Generated</span>
+                    <span className="text-sm font-medium text-[#FF7F11]">
+                      {new Date(item.playedAt).toLocaleDateString()}
+                    </span>
+                  </div>
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
         

@@ -105,7 +105,7 @@ const EditModal = ({ raga, onClose, onSave }) => {
 };
 
 // 🌟 REUSABLE CARD DISPLAY (UPDATED WITH ADMIN CONTROLS)
-const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavorite, isAdmin, onEdit }) => {
+const CardDisplay = React.memo(({ data, getSynth, onPlay, isFavorite, onToggleFavorite, isAdmin, onEdit }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [playingIndex, setPlayingIndex] = useState(-1);
   const timersRef = useRef([]);
@@ -124,9 +124,11 @@ const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavor
   }, []);
 
   const playScale = async () => {
-    if (isPlaying || notes.length === 0 || !synth) return;
+    if (isPlaying || notes.length === 0) return;
     if (onPlay) onPlay(data);
-    if (Tone.context.state !== 'running') await Tone.start();
+
+    // 🌟 USE THE NEW AUDIO PROTOCOL
+    const synth = await getSynth();
 
     setIsPlaying(true);
     const now = Tone.now() + 0.1;
@@ -256,12 +258,6 @@ export default function HistoryPage() {
   const isAdmin = userData?.role === 'admin' || userData?.role === 'owner';
 
   useEffect(() => {
-    // Audio engine setup
-    globalSynthRef.current = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 }
-    }).toDestination();
-
     // Load local data
     setFavoriteItems(JSON.parse(localStorage.getItem('tunex_favorites')) || []);
 
@@ -293,8 +289,28 @@ export default function HistoryPage() {
     };
 
     fetchCloudHistory();
-    return () => globalSynthRef.current?.dispose();
+    return () => {
+      if (globalSynthRef.current) {
+        globalSynthRef.current.dispose();
+        globalSynthRef.current = null;
+      }
+    };
   }, []);
+
+  // 🌟 NEW: AUDIO PROTOCOL
+  const getSynth = async () => {
+    if (Tone.context.state !== 'running') {
+      await Tone.start();
+      console.log('✅ AudioContext Resumed');
+    }
+    if (!globalSynthRef.current) {
+      globalSynthRef.current = new Tone.Synth({
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 }
+      }).toDestination();
+    }
+    return globalSynthRef.current;
+  };
 
   // 🌟 HANDLE DATABASE UPDATE FROM HISTORY PAGE
   const handleUpdateRaga = async (updatedData) => {
@@ -420,7 +436,7 @@ export default function HistoryPage() {
                 <CardDisplay
                   key={`fav-${entry.No || entry._id || entry.ragaNo}`}
                   data={entry}
-                  synth={globalSynthRef.current}
+                  getSynth={getSynth}
                   onPlay={handlePlayRaga}
                   isFavorite={true}
                   onToggleFavorite={handleToggleFavorite}
@@ -453,7 +469,7 @@ export default function HistoryPage() {
                 <CardDisplay
                   key={`hist-${entry._id || idx}`}
                   data={entry}
-                  synth={globalSynthRef.current}
+                  getSynth={getSynth}
                   onPlay={handlePlayRaga}
                   isFavorite={checkIsFavorite(entry)}
                   onToggleFavorite={handleToggleFavorite}

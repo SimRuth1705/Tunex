@@ -138,7 +138,7 @@ const EditModal = ({ raga, onClose, onSave, isNew }) => {
 };
 
 // 🌟 CARD DISPLAY (UPDATED with Delete Button)
-const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavorite, isAdmin, onEdit, onDelete }) => {
+const CardDisplay = React.memo(({ data, getSynth, onPlay, isFavorite, onToggleFavorite, isAdmin, onEdit, onDelete }) => {
   const { showConfirm } = useModal();
   const [isPlaying, setIsPlaying] = useState(false);
   const [playingIndex, setPlayingIndex] = useState(-1);
@@ -162,34 +162,34 @@ const CardDisplay = React.memo(({ data, synth, onPlay, isFavorite, onToggleFavor
   }, []);
 
   const playScale = async () => {
-    if (isPlaying || notes.length === 0 || !synth) return;
-
     if (onPlay) onPlay(data);
-
-    if (Tone.context.state !== 'running') {
-      await Tone.start();
-    }
+    
+    // 🌟 USE THE NEW AUDIO PROTOCOL
+    const synth = await getSynth();
 
     setIsPlaying(true);
 
     const now = Tone.now() + 0.1;
 
     notes.forEach((note, index) => {
-      synth.triggerAttackRelease(`${note}4`, "8n", now + (index * 0.4));
+      const time = now + (index * 0.4);
+      
+      // Schedule Audio
+      synth.triggerAttackRelease(`${note}4`, "8n", time);
 
-      const timer = setTimeout(() => {
+      // 🌟 Schedule Visuals exactly linked to Audio context timing (guaranteed sync)
+      Tone.Draw.schedule(() => {
         setPlayingIndex(index);
-      }, (index * 400) + 100);
-
-      timersRef.current.push(timer);
+      }, time);
     });
 
-    const resetTimer = setTimeout(() => {
-      setPlayingIndex(-1);
-      setIsPlaying(false);
-    }, (notes.length * 400) + 600);
-
-    timersRef.current.push(resetTimer);
+    // Schedule final reset
+    const endTime = now + (notes.length * 0.4) + 0.4;
+    Tone.Draw.schedule(() => {
+        setPlayingIndex(-1);
+        setIsPlaying(false);
+        Tone.Transport.stop(); // 🌟 Stop transport when done
+    }, endTime);
   };
 
   return (
@@ -362,20 +362,33 @@ export default function RagaCard() {
   const isAdmin = userData?.role === 'admin' || userData?.role === 'owner';
 
   useEffect(() => {
-    globalSynthRef.current = new Tone.Synth({
-      oscillator: { type: "triangle" },
-      envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 }
-    }).toDestination();
-
     const savedHistory = JSON.parse(localStorage.getItem('tunex_history')) || [];
     const savedFavs = JSON.parse(localStorage.getItem('tunex_favorites')) || [];
     setHistoryItems(savedHistory);
     setFavoriteItems(savedFavs);
 
     return () => {
-      if (globalSynthRef.current) globalSynthRef.current.dispose();
+      if (globalSynthRef.current) {
+        globalSynthRef.current.dispose();
+        globalSynthRef.current = null;
+      }
     };
   }, []);
+
+  // 🌟 NEW: AUDIO PROTOCOL
+  const getSynth = async () => {
+    if (Tone.context.state !== 'running') {
+      await Tone.start();
+      console.log('✅ AudioContext Resumed');
+    }
+    if (!globalSynthRef.current) {
+      globalSynthRef.current = new Tone.Synth({
+        oscillator: { type: "triangle" },
+        envelope: { attack: 0.1, decay: 0.2, sustain: 0.5, release: 1 }
+      }).toDestination();
+    }
+    return globalSynthRef.current;
+  };
 
   const fetchRagas = async () => {
     try {
@@ -751,7 +764,7 @@ export default function RagaCard() {
               <CardDisplay
                 key={entry._id || entry.No}
                 data={entry}
-                synth={globalSynthRef.current}
+                getSynth={getSynth}
                 onPlay={handlePlayRaga}
                 isFavorite={checkIsFavorite(entry)}
                 onToggleFavorite={handleToggleFavorite}
